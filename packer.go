@@ -3,6 +3,7 @@ package chipmunkdb
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	bitopts "github.com/cmchao/go-bitops"
@@ -107,4 +108,37 @@ func (vp *valPacker) Bytes() []byte {
 	b.Write(vp.bp.Bytes())
 
 	return b.Bytes()
+}
+
+func unPackValues(b []byte) []timeVal {
+	var deltaSample uint16
+	var lastTime int64
+	var lastValue float32
+
+	buf := bytes.NewBuffer(b)
+
+	binary.Read(buf, binary.BigEndian, &deltaSample)
+	binary.Read(buf, binary.BigEndian, &lastTime)
+	binary.Read(buf, binary.BigEndian, &lastValue)
+
+	bs := NewBitStream(buf.Bytes())
+
+	vals := []timeVal{{lastTime, lastValue}}
+	fmt.Println(vals)
+
+	for {
+		packed := bs.Peek()
+		tlength, nTime := timeUnPack(int64(deltaSample), lastTime, packed)
+		bs.AdvanceBits(tlength)
+		packed = bs.Peek()
+		vlength, nVal := valueUnPack(lastValue, packed)
+		bs.AdvanceBits(vlength)
+
+		lastValue = nVal
+		lastTime = nTime
+
+		fmt.Println(timeVal{nTime, nVal})
+
+		vals = append(vals, timeVal{nTime, nVal})
+	}
 }

@@ -43,5 +43,7 @@ func TestPacker(t *testing.T) {
 	curtime = curtime.Add(18 * time.Second)
 	vp.Add(curtime, 41)
 
+	unPackValues(vp.Bytes())
+
 	fmt.Printf("0x%X\n", vp.Bytes())
 }
