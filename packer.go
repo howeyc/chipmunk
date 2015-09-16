@@ -3,6 +3,7 @@ package chipmunkdb
 import (
 	"bytes"
 	"encoding/binary"
+	"time"
 
 	bitopts "github.com/cmchao/go-bitops"
 )
@@ -50,5 +51,60 @@ func (vp *bitPacker) Bytes() []byte {
 	for _, val := range vp.array {
 		binary.Write(&b, binary.BigEndian, val)
 	}
+	return b.Bytes()
+}
+
+type ValuePacker interface {
+	Add(timestamp time.Time, value float32)
+	Bytes() []byte
+}
+
+type timeVal struct {
+	t int64
+	v float32
+}
+
+type valPacker struct {
+	bp BitPacker
+
+	timeVals []timeVal
+}
+
+func NewValuePacker() ValuePacker {
+	return &valPacker{bp: NewBitPacker()}
+}
+
+func (vp *valPacker) Add(timestamp time.Time, value float32) {
+	vp.timeVals = append(vp.timeVals, timeVal{timestamp.Unix(), value})
+}
+
+func (vp *valPacker) Bytes() []byte {
+	// TODO: calculate deltaSample
+	deltaSample := int64(15)
+
+	startTime := vp.timeVals[0].t
+	startValue := vp.timeVals[0].v
+
+	var b bytes.Buffer
+
+	binary.Write(&b, binary.BigEndian, uint16(deltaSample))
+	binary.Write(&b, binary.BigEndian, startTime)
+	binary.Write(&b, binary.BigEndian, startValue)
+
+	lastTime := startTime
+	lastValue := startValue
+
+	for _, tv := range vp.timeVals[1:] {
+		length, packVal := timePack(deltaSample, lastTime, tv.t)
+		vp.bp.Add(length, packVal)
+		length, packVal = valuePack(lastValue, tv.v)
+		vp.bp.Add(length, packVal)
+
+		lastTime = tv.t
+		lastValue = tv.v
+	}
+
+	b.Write(vp.bp.Bytes())
+
 	return b.Bytes()
 }
