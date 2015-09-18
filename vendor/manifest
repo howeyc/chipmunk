@@ -1,0 +1,11 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/cmchao/go-bitops",
+			"repository": "https://github.com/cmchao/go-bitops",
+			"revision": "0647e7cf17112cba56911d48242f006b2d19f792",
+			"branch": "master"
+		}
+	]
+}

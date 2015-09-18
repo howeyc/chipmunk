@@ -1,4 +1,4 @@
-package chipmunkdb
+package chipmunk
 
 import (
 	"bytes"

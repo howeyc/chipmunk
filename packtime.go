@@ -1,4 +1,4 @@
-package chipmunkdb
+package chipmunk
 
 import bitopts "github.com/cmchao/go-bitops"
 
