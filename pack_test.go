@@ -7,8 +7,6 @@ import (
 )
 
 func TestPacker(t *testing.T) {
-	vp := NewValuePacker()
-
 	var valList []TimeValue
 
 	curtime := time.Now()
@@ -24,9 +22,5 @@ func TestPacker(t *testing.T) {
 
 	fmt.Println(valList)
 
-	for _, tv := range valList {
-		vp.Add(tv)
-	}
-
-	fmt.Println(UnPackValues(vp.Bytes()))
+	fmt.Println(UnPackValues(PackValues(valList)))
 }

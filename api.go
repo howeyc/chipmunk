@@ -6,41 +6,21 @@ import (
 	"time"
 )
 
-// ValuePacker will compress TimeValue records into a byte array
-type ValuePacker interface {
-	Add(tv TimeValue)
-	Bytes() []byte
+// TimeValue holds the Timestamp and Value to be stored
+type TimeValue struct {
+	Timestamp time.Time
+	Value     float32
 }
 
-type timeVal struct {
-	t int64
-	v float32
-}
+// PackValues will pack TimeValue records into a byte array. Times are stored at second resolution.
+func PackValues(timeVals []TimeValue) []byte {
+	bp := newBitPacker()
 
-type valPacker struct {
-	bp *bitPacker
-
-	timeVals []timeVal
-}
-
-// NewValuePacker will create a new ValuePacker
-// ValuePacker is used to pack TimeValue records into a byte array
-func NewValuePacker() ValuePacker {
-	return &valPacker{bp: newBitPacker()}
-}
-
-// Add a TimeValue to the packed byte array
-func (vp *valPacker) Add(tv TimeValue) {
-	vp.timeVals = append(vp.timeVals, timeVal{tv.Timestamp.Unix(), tv.Value})
-}
-
-// Retrieve the compressed values as a byte array
-func (vp *valPacker) Bytes() []byte {
 	// Find most frequent delta
 	deltaFreq := make(map[int64]int64)
-	lasttv := vp.timeVals[0]
-	for _, tv := range vp.timeVals[1:] {
-		delta := tv.t - lasttv.t
+	lasttv := timeVals[0]
+	for _, tv := range timeVals[1:] {
+		delta := int64(tv.Timestamp.Sub(lasttv.Timestamp).Seconds())
 		freq := deltaFreq[delta]
 		freq++
 		deltaFreq[delta] = freq
@@ -55,37 +35,31 @@ func (vp *valPacker) Bytes() []byte {
 		}
 	}
 
-	startTime := vp.timeVals[0].t
-	startValue := vp.timeVals[0].v
+	startTime := timeVals[0].Timestamp
+	startValue := timeVals[0].Value
 
 	var b bytes.Buffer
 
 	binary.Write(&b, binary.BigEndian, uint16(deltaSample))
-	binary.Write(&b, binary.BigEndian, startTime)
+	binary.Write(&b, binary.BigEndian, startTime.Unix())
 	binary.Write(&b, binary.BigEndian, startValue)
 
 	lastTime := startTime
 	lastValue := startValue
 
-	for _, tv := range vp.timeVals[1:] {
-		length, packVal := timePack(deltaSample, lastTime, tv.t)
-		vp.bp.Add(length, packVal)
-		length, packVal = valuePack(lastValue, tv.v)
-		vp.bp.Add(length, packVal)
+	for _, tv := range timeVals[1:] {
+		length, packVal := timePack(deltaSample, lastTime.Unix(), tv.Timestamp.Unix())
+		bp.Add(length, packVal)
+		length, packVal = valuePack(lastValue, tv.Value)
+		bp.Add(length, packVal)
 
-		lastTime = tv.t
-		lastValue = tv.v
+		lastTime = tv.Timestamp
+		lastValue = tv.Value
 	}
 
-	b.Write(vp.bp.Bytes())
+	b.Write(bp.Bytes())
 
 	return b.Bytes()
-}
-
-// TimeValue holds the Timestamp and Value to be stored
-type TimeValue struct {
-	Timestamp time.Time
-	Value     float32
 }
 
 // UnPackValues will return an array of TimeValue records for a given byte array
