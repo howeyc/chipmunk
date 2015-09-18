@@ -1,7 +1,6 @@
 package chipmunkdb
 
 import (
-	"fmt"
 	"unsafe"
 
 	bitopts "github.com/cmchao/go-bitops"
@@ -52,8 +51,6 @@ func valuePack(fPrev, fCurr float32) (length uint, packed uint64) {
 		return 1, 0
 	}
 
-	fmt.Println("valuePack: ", xorval)
-
 	leadzeroLen := countLeadingZero32(xorval)
 	trailzeroLen := countTrailingZero32(xorval)
 	sigbitLen := 32 - (leadzeroLen + trailzeroLen)
@@ -79,8 +76,6 @@ func valueUnPack(fPrev float32, packed uint64) (length uint, value float32) {
 
 	trailzeroLen := 32 - (leadzeroLen + sigbitLen)
 	xor32 := uint32(xorval << trailzeroLen)
-
-	fmt.Println("valueUnPack: ", xor32)
 
 	bval := (*(*uint32)(unsafe.Pointer(&fPrev))) ^ (*(*uint32)(unsafe.Pointer(&xor32)))
 

@@ -3,7 +3,6 @@ package chipmunkdb
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"time"
 
 	bitopts "github.com/cmchao/go-bitops"
@@ -57,6 +56,7 @@ func (vp *bitPacker) Bytes() []byte {
 
 type ValuePacker interface {
 	Add(timestamp time.Time, value float32)
+	AddTimeValue(tv TimeValue)
 	Bytes() []byte
 }
 
@@ -73,6 +73,10 @@ type valPacker struct {
 
 func NewValuePacker() ValuePacker {
 	return &valPacker{bp: NewBitPacker()}
+}
+
+func (vp *valPacker) AddTimeValue(tv TimeValue) {
+	vp.timeVals = append(vp.timeVals, timeVal{tv.Timestamp.Unix(), tv.Value})
 }
 
 func (vp *valPacker) Add(timestamp time.Time, value float32) {
@@ -126,7 +130,12 @@ func (vp *valPacker) Bytes() []byte {
 	return b.Bytes()
 }
 
-func unPackValues(b []byte) []timeVal {
+type TimeValue struct {
+	Timestamp time.Time
+	Value     float32
+}
+
+func UnPackValues(b []byte) []TimeValue {
 	var deltaSample uint16
 	var lastTime int64
 	var lastValue float32
@@ -139,8 +148,7 @@ func unPackValues(b []byte) []timeVal {
 
 	bs := NewBitStream(buf.Bytes())
 
-	vals := []timeVal{{lastTime, lastValue}}
-	fmt.Println(vals)
+	vals := []TimeValue{{time.Unix(lastTime, 0), lastValue}}
 
 	for {
 		packed := bs.Peek()
@@ -157,9 +165,7 @@ func unPackValues(b []byte) []timeVal {
 		lastValue = nVal
 		lastTime = nTime
 
-		fmt.Println(timeVal{nTime, nVal})
-
-		vals = append(vals, timeVal{nTime, nVal})
+		vals = append(vals, TimeValue{time.Unix(nTime, 0), nVal})
 	}
 
 	return vals
