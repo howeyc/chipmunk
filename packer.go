@@ -4,59 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"time"
-
-	bitopts "github.com/cmchao/go-bitops"
 )
 
-type BitPacker interface {
-	Add(length uint, value uint64)
-	Bytes() []byte
-}
-
-type bitPacker struct {
-	array      []uint64
-	currentIdx int
-	currentBit uint
-}
-
-func NewBitPacker() BitPacker {
-	vp := &bitPacker{array: make([]uint64, 1), currentBit: 63}
-	return vp
-}
-
-func (vp *bitPacker) Add(length uint, value uint64) {
-	lowbit := int64(vp.currentBit) - (int64(length) - 1)
-	if lowbit < 0 {
-		sr := uint64(length) - (uint64(vp.currentBit) + 1)
-		fieldVal := value >> sr
-		vp.array[vp.currentIdx], _ = bitopts.SetField64(vp.array[vp.currentIdx], vp.currentBit, 0, uint64(fieldVal))
-		vp.array = append(vp.array, uint64(value<<(64-sr)))
-		vp.currentBit = 63 - uint(sr)
-		vp.currentIdx++
-	} else {
-		vp.array[vp.currentIdx], _ = bitopts.SetField64(vp.array[vp.currentIdx], vp.currentBit, uint(lowbit), value)
-		if lowbit == 0 {
-			vp.array = append(vp.array, uint64(0))
-			vp.currentBit = 63
-			vp.currentIdx++
-		} else {
-			vp.currentBit = uint(lowbit) - 1
-		}
-	}
-}
-
-func (vp *bitPacker) Bytes() []byte {
-	var b bytes.Buffer
-
-	for _, val := range vp.array {
-		binary.Write(&b, binary.BigEndian, val)
-	}
-	return b.Bytes()
-}
-
+// ValuePacker will compress TimeValue records into a byte array
 type ValuePacker interface {
-	Add(timestamp time.Time, value float32)
-	AddTimeValue(tv TimeValue)
+	Add(tv TimeValue)
 	Bytes() []byte
 }
 
@@ -66,23 +18,23 @@ type timeVal struct {
 }
 
 type valPacker struct {
-	bp BitPacker
+	bp *bitPacker
 
 	timeVals []timeVal
 }
 
+// NewValuePacker will create a new ValuePacker
+// ValuePacker is used to pack TimeValue records into a byte array
 func NewValuePacker() ValuePacker {
-	return &valPacker{bp: NewBitPacker()}
+	return &valPacker{bp: newBitPacker()}
 }
 
-func (vp *valPacker) AddTimeValue(tv TimeValue) {
+// Add a TimeValue to the packed byte array
+func (vp *valPacker) Add(tv TimeValue) {
 	vp.timeVals = append(vp.timeVals, timeVal{tv.Timestamp.Unix(), tv.Value})
 }
 
-func (vp *valPacker) Add(timestamp time.Time, value float32) {
-	vp.timeVals = append(vp.timeVals, timeVal{timestamp.Unix(), value})
-}
-
+// Retrieve the compressed values as a byte array
 func (vp *valPacker) Bytes() []byte {
 	// Find most frequent delta
 	deltaFreq := make(map[int64]int64)
@@ -130,11 +82,13 @@ func (vp *valPacker) Bytes() []byte {
 	return b.Bytes()
 }
 
+// TimeValue holds the Timestamp and Value to be stored
 type TimeValue struct {
 	Timestamp time.Time
 	Value     float32
 }
 
+// UnPackValues will return an array of TimeValue records for a given byte array
 func UnPackValues(b []byte) []TimeValue {
 	var deltaSample uint16
 	var lastTime int64
@@ -146,7 +100,7 @@ func UnPackValues(b []byte) []TimeValue {
 	binary.Read(buf, binary.BigEndian, &lastTime)
 	binary.Read(buf, binary.BigEndian, &lastValue)
 
-	bs := NewBitStream(buf.Bytes())
+	bs := newBitStream(buf.Bytes())
 
 	vals := []TimeValue{{time.Unix(lastTime, 0), lastValue}}
 

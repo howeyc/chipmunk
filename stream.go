@@ -6,13 +6,13 @@ import (
 	"errors"
 )
 
-type BitStream struct {
+type bitStream struct {
 	array []uint64
 
 	bitNumber uint
 }
 
-func NewBitStream(b []byte) *BitStream {
+func newBitStream(b []byte) *bitStream {
 	buf := bytes.NewBuffer(b)
 
 	size := buf.Len()
@@ -25,10 +25,10 @@ func NewBitStream(b []byte) *BitStream {
 		arr[i] = k
 	}
 
-	return &BitStream{arr, 63}
+	return &bitStream{arr, 63}
 }
 
-func (bs *BitStream) AdvanceBits(count uint) error {
+func (bs *bitStream) AdvanceBits(count uint) error {
 	if bs.bitNumber >= count {
 		bs.bitNumber -= count
 		return nil
@@ -53,7 +53,7 @@ func (bs *BitStream) AdvanceBits(count uint) error {
 	return nil
 }
 
-func (bs *BitStream) Peek() (peekVal uint64) {
+func (bs *bitStream) Peek() (peekVal uint64) {
 	sl := 63 - bs.bitNumber
 	sr := 64 - sl
 	if len(bs.array) > 0 {

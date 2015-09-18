@@ -25,7 +25,7 @@ func TestPacker(t *testing.T) {
 	fmt.Println(valList)
 
 	for _, tv := range valList {
-		vp.AddTimeValue(tv)
+		vp.Add(tv)
 	}
 
 	fmt.Println(UnPackValues(vp.Bytes()))
