@@ -3,6 +3,7 @@ package chipmunkdb
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 )
 
 type BitStream struct {
@@ -27,27 +28,40 @@ func NewBitStream(b []byte) *BitStream {
 	return &BitStream{arr, 63}
 }
 
-func (bs *BitStream) AdvanceBits(count uint) {
+func (bs *BitStream) AdvanceBits(count uint) error {
 	if bs.bitNumber >= count {
 		bs.bitNumber -= count
-		return
+		return nil
 	} else if bs.bitNumber == (count + 1) {
 		bs.bitNumber = 63
+		if len(bs.array) <= 1 {
+			return errors.New("end of stream")
+		}
 		bs.array = bs.array[1:]
-		return
+		return nil
+	}
+
+	if len(bs.array) <= 1 {
+		return errors.New("end of stream")
 	}
 
 	count -= (bs.bitNumber + 1)
 	bs.array = bs.array[1:]
 	bs.bitNumber = 63
 	bs.bitNumber -= count
+
+	return nil
 }
 
-func (bs *BitStream) Peek() uint64 {
+func (bs *BitStream) Peek() (peekVal uint64) {
 	sl := 63 - bs.bitNumber
 	sr := 64 - sl
-	peekVal := bs.array[0] << sl
-	peekVal |= bs.array[1] >> sr
+	if len(bs.array) > 0 {
+		peekVal = bs.array[0] << sl
+		if len(bs.array) > 1 {
+			peekVal |= bs.array[1] >> sr
+		}
+	}
 
 	return peekVal
 }

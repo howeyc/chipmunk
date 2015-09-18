@@ -80,8 +80,24 @@ func (vp *valPacker) Add(timestamp time.Time, value float32) {
 }
 
 func (vp *valPacker) Bytes() []byte {
-	// TODO: calculate deltaSample
-	deltaSample := int64(15)
+	// Find most frequent delta
+	deltaFreq := make(map[int64]int64)
+	lasttv := vp.timeVals[0]
+	for _, tv := range vp.timeVals[1:] {
+		delta := tv.t - lasttv.t
+		freq := deltaFreq[delta]
+		freq++
+		deltaFreq[delta] = freq
+
+		lasttv = tv
+	}
+	var maxFreq, deltaSample int64
+	for delta, freq := range deltaFreq {
+		if freq > maxFreq {
+			deltaSample = delta
+			maxFreq = freq
+		}
+	}
 
 	startTime := vp.timeVals[0].t
 	startValue := vp.timeVals[0].v
@@ -129,10 +145,14 @@ func unPackValues(b []byte) []timeVal {
 	for {
 		packed := bs.Peek()
 		tlength, nTime := timeUnPack(int64(deltaSample), lastTime, packed)
-		bs.AdvanceBits(tlength)
+		if err := bs.AdvanceBits(tlength); err != nil {
+			break
+		}
 		packed = bs.Peek()
 		vlength, nVal := valueUnPack(lastValue, packed)
-		bs.AdvanceBits(vlength)
+		if err := bs.AdvanceBits(vlength); err != nil {
+			break
+		}
 
 		lastValue = nVal
 		lastTime = nTime
@@ -141,4 +161,6 @@ func unPackValues(b []byte) []timeVal {
 
 		vals = append(vals, timeVal{nTime, nVal})
 	}
+
+	return vals
 }
